@@ -1,0 +1,84 @@
+(This g-code is designed to test different cutting settings by cutting an array of squares. Kerf width is compensated for so the squares can be checked for size accuracy too.)
+(Change the values of #100 through #109 below to customize the test.)
+(Created by Ryan Luecke for compatibility with Mach3.)
+
+#100 = 1 (size of each test square to cut, in inches)
+#101 = 0.055 (kerf width to compensate for, in inches)
+#102 = 50 (minimum feed rate to test, IPM)
+#103 = 100 (maximum feed rate to test, IPM)
+#104 = 5 (number of squares to cut in X-axis direction)
+#105 = 2 (number of squares to cut in Y-axis direction)
+#106 = 0.25 (spacing between squares, in inches)
+#107 = 0.25 (width of outer border to leave, in inches; set to 0 for no cut-out)
+#108 = 500 (pierce delay, in milliseconds)
+#109 = -1 (delay in milliseconds before moving to next square, set to -1 to Pause instead--give material time to cool or time to change PSI/amp settings)
+#110 = [[#103 - #102] / [#104 * #105 - 1]] (calculated feed rate increment)
+#111 = [#107 + #100 / 2 - 0.1] (starting Y-axis lead-in position)
+#112 = [#107 + #100 - 0.2 - #101 / 2] (calculated X-axis starting position)
+#113 = 0 (starting square in X-axis)
+
+G90
+G70
+G0 Y[#111]
+M98 P0001 L[#105] (call Y-axis subroutine, run for the number of rows)
+M98 P0003 L[1 AND #107]
+M30
+
+
+(Y-axis Sub Program)
+O0001
+#113 = 0
+G0 X[#112]
+M98 P0002 L[#104] (call X-axis subroutine, run for the number of columns)
+(G1 X[#100 * #104 + #107 + #106 * [#104 - 1] + 0.3] F200)
+#111 = [#111 + #100 + #106] (calculate the Y-axis lead-in position for the next row)
+G0 Y[#111]
+M99
+
+
+(X-axis Squares Sub Program)
+O0002
+M3
+G4 P[#108]
+G1 X[#112 + [#113 * [#100 + #106]] + 0.1] F[#102]
+G3 X[#112 + [#113 * [#100 + #106]] + 0.2] Y[#111 + 0.1] I0. J0.1
+G1 Y[[#100 - #101] / 2 + #111 + 0.1]
+G1 X[#112 + #113 * [#100 + #106] + 0.2 - [#100 - #101]]
+G1 Y[#111 + 0.1 - [#100 - #101] / 2]
+G1 X[#112 + #113 * [#100 + #106] + 0.2]
+G1 Y[#111 + 0.1]
+G3 X[#112 + #113 * [#100 + #106] + 0.1] Y[#111 + 0.2] I-0.1 J0.
+G1 X[#112 + #113 * [#100 + #106]]
+M5
+
+#113 = [#113 + 1]
+G1 X[#112 + #113 * [#100 + #106]] Y[#111] F200 (increment X-axis position)
+#102 = [#102 + #110]
+M98 P0004 L[[1 AND #109] XOR [#109 + ABS[#109]]]
+M98 P0005 L[[1 AND #109] XOR [#109 - #109]]
+M99
+
+
+(Perimeter Cutout Sub Program)
+O0003
+G0 X[#100 * #104 + #107 * 2 + #106 * [#104 - 1]] Y[#100 * #105 + #107 * 2 + #106 * [#105 - 1]]
+M3
+G4 P[#108]
+G1 Y0 F[#103 - [#110 * #104 * #105 / 2]] (feed rate is the median of the range tested)
+G1 X[#107 *0.5]
+G1 X0 Y[#107 *0.5]
+G1 Y[#100 * #105 + #107 * 2 + #106 * [#105 - 1]]
+G1 X[#100 * #104 + #107 * 2 + #106 * [#104 - 1]]
+M5
+G0 X[1 + #100 * #104 + #107 * 2 + #106 * [#104 - 1]] Y[1 + #100 * #105 + #107 * 2 + #106 * [#105 - 1]]
+M99
+
+(Pause Sub Program)
+O0004
+M1
+M99
+
+(Delay/dwell Sub Program)
+O0005
+G4 P[ABS[#109]]
+M99

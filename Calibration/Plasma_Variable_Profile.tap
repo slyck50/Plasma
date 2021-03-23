@@ -1,0 +1,65 @@
+(This g-code is designed to test different cutting settings by cutting a series of profiles that include straight lines, curves, and right angles.)
+(Change the values of #100, #101, #102, #104, #106, #107, and #108 below for a customized test.)
+(Created by Ryan Luecke for compatibility with Mach3.)
+
+#100 = 30 (minimum feed rate to test, IPM; set equal to max to use same feed rate the whole test)
+#101 = 60 (maximum feed rate to test, IPM)
+#102 = 7 (number of test profiles to cut)
+#103 = [[#101 - #100] / [#102 - 1]] (calculated feed rate increment)
+#104 = 3 (overall width of test profile in inches; if a border is desired, it will be added to this width)
+#105 = [0.1 * #104] (Y-axis incremental step-over; calculated to leave room between each profile; 0.1 default; can be set manually if looser spacing is desired)
+#106 = 0.25 (width of outside border to leave in inches; set to 0 for no cut-out and to leave plasma head at the set increment away from last cut, ready to run program again)
+#107 = 500 (pierce delay in milliseconds)
+#108 = 2000 (delay in milliseconds before moving to next square, set to -1 to Pause instead--gives material time to cool, or time to change psi/amp settings)
+
+G91
+G70
+
+G0 X[#106] Y[1.5 * #105 + #106]
+
+M98 P0001 L[#102] (call profile subroutine, run number of times)
+M98 P0002 L[1 AND #106] (call cutout subroutine, if a border width was selected)
+G0 Y[0 - #105] (negates starting Y-offset for chaining multiple runs of program)
+M30
+
+(2D Profile Sub Program)
+O0001
+M3
+G4 P[#107]
+G1 X[0.08 * #104] F[#100]
+G3 X[0.0433012 * #104] Y[0.025 * #104] I0. J[0.05 * #104]
+G2 X[0.0933012 * #104] Y[-0.025 * #104] I[0.0433012 * #104] J[-0.025 * #104]
+G3 X[0.0580416 * #104] Y[-0.0240416 * #104] I[0.034 * #104] J0.
+G1 X[0.074042 * #104] Y[0.074042 * #104]
+G1 X[0.1 * #104] Y[-0.1 * #104]
+G1 X[0.1 * #104] Y[0.1 * #104]
+G1 X[0.05 * #104] Y[-0.05 * #104]
+G1 X[0.4012 * #104]
+M5
+M98 P0003 L[[1 AND #109] XOR [#108 + ABS[#108]]]
+M98 P0004 L[[1 AND #109] XOR [#108 - #108]]
+G1 X[0 - #104] Y[#105] F300
+#100 = [#100 + #103]
+M99
+
+(Cutout Sub Program)
+O0002
+G0 X[0 - #106] Y[#106 - #105 + 0.05 * #104]
+M3
+G4 P[#107]
+G1 X[#106 + #106 + #104] F[#101 - [#103 * #102 / 2]]
+G1 Y[0 - [[[#102 - 1] * #105] + #106 + #106 + 0.1 * #104]]
+G1 X[0 - [#106 + #106 + #104]]
+G1 Y[[[#102 - 1] * #105] + #106 + #106 + 0.1 * #104]
+M5
+M99
+
+(Pause Sub Program)
+O0003
+M1
+M99
+
+(Delay/dwell Sub Program)
+O0004
+G4 P[ABS[#108]]
+M99
